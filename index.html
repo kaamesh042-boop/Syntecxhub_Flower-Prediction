@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project 1 — Flower Classification</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Mono:wght@300;400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0e1a;
+    --surface: #111827;
+    --surface2: #1a2236;
+    --border: #1e2d45;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --accent3: #f59e0b;
+    --setosa: #22d3ee;
+    --versicolor: #a78bfa;
+    --virginica: #fb7185;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --font-display: 'DM Serif Display', serif;
+    --font-ui: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* GRID NOISE BACKGROUND */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1200px; margin: 0 auto; padding: 0 2rem; position: relative; z-index: 1; }
+
+  /* HEADER */
+  header {
+    padding: 3rem 0 2rem;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    overflow: hidden;
+  }
+  header::after {
+    content: 'IRIS';
+    position: absolute; right: -1rem; top: 50%; transform: translateY(-50%);
+    font-family: var(--font-display);
+    font-size: 14rem;
+    color: rgba(0,229,255,0.03);
+    line-height: 1;
+    pointer-events: none;
+    white-space: nowrap;
+  }
+  .badge {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 0.25rem 0.75rem;
+    border-radius: 2px;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+  }
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(2.5rem, 6vw, 5rem);
+    line-height: 1.05;
+    background: linear-gradient(135deg, #e2e8f0 0%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 0.5rem;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+    font-family: var(--font-mono);
+  }
+
+  /* NAV TABS */
+  .tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    margin: 2rem 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .tab-btn {
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-family: var(--font-ui);
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.85rem 1.5rem;
+    cursor: pointer;
+    position: relative;
+    white-space: nowrap;
+    transition: color 0.2s;
+  }
+  .tab-btn::after {
+    content: '';
+    position: absolute;
+    bottom: -1px; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transition: transform 0.2s;
+  }
+  .tab-btn.active { color: var(--accent); }
+  .tab-btn.active::after { transform: scaleX(1); }
+  .tab-btn:hover { color: var(--text); }
+
+  .tab-panel { display: none; animation: fadeIn 0.3s ease; }
+  .tab-panel.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* CARDS */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .card-title {
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--accent);
+    border-radius: 50%;
+  }
+
+  /* STAT GRID */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .stat-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem;
+  }
+  .stat-label { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; font-family: var(--font-mono); }
+  .stat-value { font-family: var(--font-display); font-size: 2rem; margin-top: 0.25rem; }
+  .stat-value.cyan { color: var(--accent); }
+  .stat-value.violet { color: var(--accent2); }
+  .stat-value.amber { color: var(--accent3); }
+
+  /* TABLE */
+  .data-table { width: 100%; border-collapse: collapse; font-family: var(--font-mono); font-size: 0.8rem; }
+  .data-table th {
+    text-align: left;
+    padding: 0.6rem 0.75rem;
+    color: var(--muted);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .data-table td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid rgba(30,45,69,0.5);
+  }
+  .data-table tr:hover td { background: var(--surface2); }
+  .species-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 2px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+  }
+  .s-setosa { background: rgba(34,211,238,0.15); color: var(--setosa); }
+  .s-versicolor { background: rgba(167,139,250,0.15); color: var(--versicolor); }
+  .s-virginica { background: rgba(251,113,133,0.15); color: var(--virginica); }
+
+  /* CANVAS CHARTS */
+  canvas { display: block; }
+
+  /* SCATTER PLOTS */
+  .plot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+  }
+  .plot-wrap {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1rem;
+    text-align: center;
+  }
+  .plot-label { font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted); margin-top: 0.5rem; }
+
+  /* LEGEND */
+  .legend {
+    display: flex;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+    margin: 0.75rem 0;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+  .legend-item { display: flex; align-items: center; gap: 0.4rem; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  /* CONFUSION MATRIX */
+  .cm-wrap { overflow-x: auto; }
+  .cm-table { border-collapse: separate; border-spacing: 4px; margin: 0 auto; }
+  .cm-table td, .cm-table th {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    text-align: center;
+    padding: 0.75rem 1rem;
+    min-width: 80px;
+  }
+  .cm-table th { color: var(--muted); font-size: 0.7rem; }
+  .cm-cell-high { background: rgba(0,229,255,0.35); border-radius: 3px; font-weight: 600; }
+  .cm-cell-mid { background: rgba(0,229,255,0.12); border-radius: 3px; }
+  .cm-cell-low { background: rgba(0,229,255,0.04); border-radius: 3px; color: var(--muted); }
+
+  /* ACCURACY BAR */
+  .acc-bar-wrap { margin: 0.5rem 0 1rem; }
+  .acc-bar-label { display: flex; justify-content: space-between; font-family: var(--font-mono); font-size: 0.75rem; color: var(--muted); margin-bottom: 0.35rem; }
+  .acc-bar-track { background: var(--border); border-radius: 2px; height: 6px; overflow: hidden; }
+  .acc-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(90deg, var(--accent2), var(--accent)); transition: width 1s cubic-bezier(0.4,0,0.2,1); }
+
+  /* COMPARISON */
+  .compare-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 600px) { .compare-grid { grid-template-columns: 1fr; } }
+  .model-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1.25rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .model-card.winner::before {
+    content: 'BEST';
+    position: absolute;
+    top: 0.75rem; right: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    color: var(--accent3);
+    border: 1px solid var(--accent3);
+    padding: 0.1rem 0.4rem;
+    border-radius: 2px;
+  }
+  .model-name { font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem; }
+
+  /* CLI */
+  .cli-wrap {
+    background: #060a12;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+  .cli-bar {
+    background: var(--surface2);
+    padding: 0.5rem 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .cli-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .cli-body { padding: 1.5rem; font-family: var(--font-mono); }
+  .cli-prompt { color: var(--accent); margin-bottom: 1.5rem; font-size: 0.8rem; }
+  .cli-form {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .cli-field label {
+    display: block;
+    font-size: 0.65rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.35rem;
+  }
+  .cli-field input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    padding: 0.5rem 0.75rem;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .cli-field input:focus { border-color: var(--accent); }
+  .cli-field input::placeholder { color: var(--muted); }
+  .predict-btn {
+    background: none;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    padding: 0.6rem 1.5rem;
+    border-radius: 3px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: background 0.2s, color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .predict-btn:hover { background: var(--accent); color: var(--bg); }
+  .cli-output {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 1rem;
+    font-size: 0.8rem;
+    min-height: 100px;
+    white-space: pre-wrap;
+    line-height: 1.7;
+  }
+  .out-line-green { color: #4ade80; }
+  .out-line-cyan { color: var(--accent); }
+  .out-line-muted { color: var(--muted); }
+  .out-line-amber { color: var(--accent3); }
+  .out-line-pink { color: var(--virginica); }
+  .out-line-violet { color: var(--versicolor); }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* BOX PLOTS */
+  .boxplot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+  }
+  .selector-row { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem; }
+  .sel-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    padding: 0.3rem 0.75rem;
+    border-radius: 2px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+  }
+  .sel-btn.active, .sel-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  footer {
+    margin: 4rem 0 2rem;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 1.5rem;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div class="badge">Project — 01 &nbsp;/&nbsp; Machine Learning</div>
+    <h1>Flower Classification</h1>
+    <p class="subtitle">Iris Dataset · Logistic Regression · Decision Tree · EDA · Confusion Matrix</p>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" onclick="switchTab('eda')">01 · EDA</button>
+    <button class="tab-btn" onclick="switchTab('scatter')">02 · Feature Pairs</button>
+    <button class="tab-btn" onclick="switchTab('models')">03 · Classifiers</button>
+    <button class="tab-btn" onclick="switchTab('matrix')">04 · Confusion Matrix</button>
+    <button class="tab-btn" onclick="switchTab('predict')">05 · Predict</button>
+  </nav>
+
+  <!-- EDA PANEL -->
+  <div id="tab-eda" class="tab-panel active">
+    <div class="stat-grid" id="eda-stats"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="card">
+        <div class="card-title">Dataset Overview</div>
+        <div style="overflow-x:auto;"><table class="data-table" id="summary-table"></table></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Class Distribution</div>
+        <canvas id="dist-chart" height="200"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Feature Statistics per Class</div>
+      <div style="overflow-x:auto;"><table class="data-table" id="stats-table"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Sample Data (first 15 rows)</div>
+      <div style="overflow-x:auto;"><table class="data-table" id="sample-table"></table></div>
+    </div>
+  </div>
+
+  <!-- SCATTER PANEL -->
+  <div id="tab-scatter" class="tab-panel">
+    <div class="card">
+      <div class="card-title">Feature Pair Visualization</div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--setosa)"></div>Setosa</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--versicolor)"></div>Versicolor</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--virginica)"></div>Virginica</div>
+      </div>
+      <div class="selector-row" id="pair-selector"></div>
+      <div style="text-align:center;">
+        <canvas id="scatter-canvas" width="700" height="420" style="max-width:100%;border:1px solid var(--border);border-radius:4px;background:#080c18;"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">All Feature Pairs</div>
+      <div class="plot-grid" id="all-scatters"></div>
+    </div>
+  </div>
+
+  <!-- MODELS PANEL -->
+  <div id="tab-models" class="tab-panel">
+    <div class="compare-grid" id="model-compare"></div>
+    <div class="card">
+      <div class="card-title">Accuracy Comparison</div>
+      <canvas id="acc-chart" height="120"></canvas>
+    </div>
+    <div class="card">
+      <div class="card-title">Classification Report</div>
+      <div id="clf-report"></div>
+    </div>
+  </div>
+
+  <!-- CONFUSION MATRIX PANEL -->
+  <div id="tab-matrix" class="tab-panel">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+      <div class="card">
+        <div class="card-title">Logistic Regression</div>
+        <div class="cm-wrap" id="cm-lr"></div>
+        <canvas id="cm-lr-visual" height="180" style="margin-top:1rem;max-width:100%;"></canvas>
+      </div>
+      <div class="card">
+        <div class="card-title">Decision Tree</div>
+        <div class="cm-wrap" id="cm-dt"></div>
+        <canvas id="cm-dt-visual" height="180" style="margin-top:1rem;max-width:100%;"></canvas>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Misclassification Analysis</div>
+      <div id="misclass-analysis"></div>
+    </div>
+  </div>
+
+  <!-- PREDICT PANEL -->
+  <div id="tab-predict" class="tab-panel">
+    <div class="cli-wrap">
+      <div class="cli-bar">
+        <div class="cli-dot" style="background:#ff5f56"></div>
+        <div class="cli-dot" style="background:#febc2e"></div>
+        <div class="cli-dot" style="background:#27c93f"></div>
+        <span style="margin-left:0.5rem;">iris_predict.py — flower classifier CLI</span>
+      </div>
+      <div class="cli-body">
+        <div class="cli-prompt">$ python iris_predict.py --interactive</div>
+        <p style="font-size:0.75rem;color:var(--muted);margin-bottom:1.25rem;">Enter flower measurements to predict the species. All values in centimeters.</p>
+        <div class="cli-form">
+          <div class="cli-field">
+            <label>Sepal Length (cm)</label>
+            <input type="number" id="inp-sl" placeholder="e.g. 5.1" step="0.1" min="0" max="10" value="5.1">
+          </div>
+          <div class="cli-field">
+            <label>Sepal Width (cm)</label>
+            <input type="number" id="inp-sw" placeholder="e.g. 3.5" step="0.1" min="0" max="10" value="3.5">
+          </div>
+          <div class="cli-field">
+            <label>Petal Length (cm)</label>
+            <input type="number" id="inp-pl" placeholder="e.g. 1.4" step="0.1" min="0" max="10" value="1.4">
+          </div>
+          <div class="cli-field">
+            <label>Petal Width (cm)</label>
+            <input type="number" id="inp-pw" placeholder="e.g. 0.2" step="0.1" min="0" max="10" value="0.2">
+          </div>
+        </div>
+        <div style="display:flex;gap:1rem;flex-wrap:wrap;align-items:center;margin-bottom:1rem;">
+          <button class="predict-btn" onclick="runPrediction()">▶ Run Prediction</button>
+          <div style="font-family:var(--font-mono);font-size:0.7rem;color:var(--muted);">Using both LR and DT models</div>
+        </div>
+        <div class="cli-output" id="cli-output"><span class="out-line-muted">// Waiting for input...</span></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:1rem;">
+      <div class="card-title">Quick Examples</div>
+      <div style="display:flex;gap:0.75rem;flex-wrap:wrap;">
+        <button class="sel-btn" onclick="fillExample(5.1,3.5,1.4,0.2)">Setosa example</button>
+        <button class="sel-btn" onclick="fillExample(6.0,2.9,4.5,1.5)">Versicolor example</button>
+        <button class="sel-btn" onclick="fillExample(6.9,3.1,5.4,2.1)">Virginica example</button>
+        <button class="sel-btn" onclick="fillExample(5.5,2.6,4.4,1.2)">Borderline case</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  Project 1 · Flower Classification · Iris Dataset · Built with Vanilla JS + Canvas API
+</footer>
+
+<script>
+// =============================================
+// IRIS DATASET (150 samples)
+// =============================================
+const IRIS_DATA = [
+[5.1,3.5,1.4,0.2,0],[4.9,3.0,1.4,0.2,0],[4.7,3.2,1.3,0.2,0],[4.6,3.1,1.5,0.2,0],[5.0,3.6,1.4,0.2,0],
+[5.4,3.9,1.7,0.4,0],[4.6,3.4,1.4,0.3,0],[5.0,3.4,1.5,0.2,0],[4.4,2.9,1.4,0.2,0],[4.9,3.1,1.5,0.1,0],
+[5.4,3.7,1.5,0.2,0],[4.8,3.4,1.6,0.2,0],[4.8,3.0,1.4,0.1,0],[4.3,3.0,1.1,0.1,0],[5.8,4.0,1.2,0.2,0],
+[5.7,4.4,1.5,0.4,0],[5.4,3.9,1.3,0.4,0],[5.1,3.5,1.4,0.3,0],[5.7,3.8,1.7,0.3,0],[5.1,3.8,1.5,0.3,0],
+[5.4,3.4,1.7,0.2,0],[5.1,3.7,1.5,0.4,0],[4.6,3.6,1.0,0.2,0],[5.1,3.3,1.7,0.5,0],[4.8,3.4,1.9,0.2,0],
+[5.0,3.0,1.6,0.2,0],[5.0,3.4,1.6,0.4,0],[5.2,3.5,1.5,0.2,0],[5.2,3.4,1.4,0.2,0],[4.7,3.2,1.6,0.2,0],
+[4.8,3.1,1.6,0.2,0],[5.4,3.4,1.5,0.4,0],[5.2,4.1,1.5,0.1,0],[5.5,4.2,1.4,0.2,0],[4.9,3.1,1.5,0.2,0],
+[5.0,3.2,1.2,0.2,0],[5.5,3.5,1.3,0.2,0],[4.9,3.6,1.4,0.1,0],[4.4,3.0,1.3,0.2,0],[5.1,3.4,1.5,0.2,0],
+[5.0,3.5,1.3,0.3,0],[4.5,2.3,1.3,0.3,0],[4.4,3.2,1.3,0.2,0],[5.0,3.5,1.6,0.6,0],[5.1,3.8,1.9,0.4,0],
+[4.8,3.0,1.4,0.3,0],[5.1,3.8,1.6,0.2,0],[4.6,3.2,1.4,0.2,0],[5.3,3.7,1.5,0.2,0],[5.0,3.3,1.4,0.2,0],
+[7.0,3.2,4.7,1.4,1],[6.4,3.2,4.5,1.5,1],[6.9,3.1,4.9,1.5,1],[5.5,2.3,4.0,1.3,1],[6.5,2.8,4.6,1.5,1],
+[5.7,2.8,4.5,1.3,1],[6.3,3.3,4.7,1.6,1],[4.9,2.4,3.3,1.0,1],[6.6,2.9,4.6,1.3,1],[5.2,2.7,3.9,1.4,1],
+[5.0,2.0,3.5,1.0,1],[5.9,3.0,4.2,1.5,1],[6.0,2.2,4.0,1.0,1],[6.1,2.9,4.7,1.4,1],[5.6,2.9,3.6,1.3,1],
+[6.7,3.1,4.4,1.4,1],[5.6,3.0,4.5,1.5,1],[5.8,2.7,4.1,1.0,1],[6.2,2.2,4.5,1.5,1],[5.6,2.5,3.9,1.1,1],
+[5.9,3.2,4.8,1.8,1],[6.1,2.8,4.0,1.3,1],[6.3,2.5,4.9,1.5,1],[6.1,2.8,4.7,1.2,1],[6.4,2.9,4.3,1.3,1],
+[6.6,3.0,4.4,1.4,1],[6.8,2.8,4.8,1.4,1],[6.7,3.0,5.0,1.7,1],[6.0,2.9,4.5,1.5,1],[5.7,2.6,3.5,1.0,1],
+[5.5,2.4,3.8,1.1,1],[5.5,2.4,3.7,1.0,1],[5.8,2.7,3.9,1.2,1],[6.0,2.7,5.1,1.6,1],[5.4,3.0,4.5,1.5,1],
+[6.0,3.4,4.5,1.6,1],[6.7,3.1,4.7,1.5,1],[6.3,2.3,4.4,1.3,1],[5.6,3.0,4.1,1.3,1],[5.5,2.5,4.0,1.3,1],
+[5.5,2.6,4.4,1.2,1],[6.1,3.0,4.6,1.4,1],[5.8,2.6,4.0,1.2,1],[5.0,2.3,3.3,1.0,1],[5.6,2.7,4.2,1.3,1],
+[5.7,3.0,4.2,1.2,1],[5.7,2.9,4.2,1.3,1],[6.2,2.9,4.3,1.3,1],[5.1,2.5,3.0,1.1,1],[5.7,2.8,4.1,1.3,1],
+[6.3,3.3,6.0,2.5,2],[5.8,2.7,5.1,1.9,2],[7.1,3.0,5.9,2.1,2],[6.3,2.9,5.6,1.8,2],[6.5,3.0,5.8,2.2,2],
+[7.6,3.0,6.6,2.1,2],[4.9,2.5,4.5,1.7,2],[7.3,2.9,6.3,1.8,2],[6.7,2.5,5.8,1.8,2],[7.2,3.6,6.1,2.5,2],
+[6.5,3.2,5.1,2.0,2],[6.4,2.7,5.3,1.9,2],[6.8,3.0,5.5,2.1,2],[5.7,2.5,5.0,2.0,2],[5.8,2.8,5.1,2.4,2],
+[6.4,3.2,5.3,2.3,2],[6.5,3.0,5.5,1.8,2],[7.7,3.8,6.7,2.2,2],[7.7,2.6,6.9,2.3,2],[6.0,2.2,5.0,1.5,2],
+[6.9,3.2,5.7,2.3,2],[5.6,2.8,4.9,2.0,2],[7.7,2.8,6.7,2.0,2],[6.3,2.7,4.9,1.8,2],[6.7,3.3,5.7,2.1,2],
+[7.2,3.2,6.0,1.8,2],[6.2,2.8,4.8,1.8,2],[6.1,3.0,4.9,1.8,2],[6.4,2.8,5.6,2.1,2],[7.2,3.0,5.8,1.6,2],
+[7.4,2.8,6.1,1.9,2],[7.9,3.8,6.4,2.0,2],[6.4,2.8,5.6,2.2,2],[6.3,2.8,5.1,1.5,2],[6.1,2.6,5.6,1.4,2],
+[7.7,3.0,6.1,2.3,2],[6.3,3.4,5.6,2.4,2],[6.4,3.1,5.5,1.8,2],[6.0,3.0,4.8,1.8,2],[6.9,3.1,5.4,2.1,2],
+[6.7,3.1,5.6,2.4,2],[6.9,3.1,5.1,2.3,2],[5.8,2.7,5.1,1.9,2],[6.8,3.2,5.9,2.3,2],[6.7,3.3,5.7,2.5,2],
+[6.7,3.0,5.2,2.3,2],[6.3,2.5,5.0,1.9,2],[6.5,3.0,5.2,2.0,2],[6.2,3.4,5.4,2.3,2],[5.9,3.0,5.1,1.8,2]
+];
+
+const SPECIES = ['Setosa','Versicolor','Virginica'];
+const FEATURES = ['Sepal Length','Sepal Width','Petal Length','Petal Width'];
+const COLORS = ['#22d3ee','#a78bfa','#fb7185'];
+const FEAT_SHORT = ['SL','SW','PL','PW'];
+
+// Split train/test (80/20, stratified-like)
+function trainTestSplit(data) {
+  const byClass = [[], [], []];
+  data.forEach(r => byClass[r[4]].push(r));
+  const train = [], test = [];
+  byClass.forEach(cls => {
+    cls.forEach((r, i) => {
+      if (i % 5 === 0) test.push(r);
+      else train.push(r);
+    });
+  });
+  return {train, test};
+}
+
+// =============================================
+// LOGISTIC REGRESSION (One-vs-rest, softmax)
+// =============================================
+function softmax(arr) {
+  const max = Math.max(...arr);
+  const exps = arr.map(x => Math.exp(x - max));
+  const sum = exps.reduce((a,b) => a+b, 0);
+  return exps.map(e => e/sum);
+}
+
+function normalize(data) {
+  const means = [0,1,2,3].map(f => data.reduce((s,r) => s+r[f],0)/data.length);
+  const stds = [0,1,2,3].map(f => {
+    const m = means[f];
+    return Math.sqrt(data.reduce((s,r) => s+(r[f]-m)**2,0)/data.length) || 1;
+  });
+  return {means, stds};
+}
+
+function normalizeRow(row, means, stds) {
+  return [0,1,2,3].map(f => (row[f]-means[f])/stds[f]);
+}
+
+function trainLR(trainData, epochs=300, lr=0.1) {
+  const {means, stds} = normalize(trainData);
+  const norms = trainData.map(r => ({x: normalizeRow(r,means,stds), y: r[4]}));
+  let W = Array.from({length:3}, () => [0,0,0,0].map(()=>(Math.random()-0.5)*0.1));
+  let b = [0,0,0];
+  for(let e=0;e<epochs;e++){
+    const dW = Array.from({length:3},()=>[0,0,0,0]);
+    const db = [0,0,0];
+    norms.forEach(({x,y}) => {
+      const logits = W.map((w,c) => w.reduce((s,wi,i)=>s+wi*x[i],0)+b[c]);
+      const probs = softmax(logits);
+      for(let c=0;c<3;c++){
+        const err = probs[c] - (c===y?1:0);
+        for(let i=0;i<4;i++) dW[c][i] += err*x[i];
+        db[c] += err;
+      }
+    });
+    const n = norms.length;
+    for(let c=0;c<3;c++){
+      for(let i=0;i<4;i++) W[c][i] -= lr*dW[c][i]/n;
+      b[c] -= lr*db[c]/n;
+    }
+  }
+  return {W,b,means,stds};
+}
+
+function predictLR(model, row) {
+  const x = normalizeRow(row, model.means, model.stds);
+  const logits = model.W.map((w,c) => w.reduce((s,wi,i)=>s+wi*x[i],0)+model.b[c]);
+  const probs = softmax(logits);
+  return {label: probs.indexOf(Math.max(...probs)), probs};
+}
+
+// =============================================
+// DECISION TREE (CART, Gini)
+// =============================================
+function gini(groups, classes) {
+  const n = groups.reduce((s,g)=>s+g.length,0);
+  let imp = 0;
+  groups.forEach(g => {
+    if(!g.length) return;
+    let score = 0;
+    classes.forEach(c => {
+      const p = g.filter(r=>r[4]===c).length/g.length;
+      score += p*p;
+    });
+    imp += (1-score)*g.length/n;
+  });
+  return imp;
+}
+
+function bestSplit(data) {
+  let best = {gini:Infinity, feat:0, thresh:0, left:[], right:[]};
+  [0,1,2,3].forEach(f => {
+    const vals = [...new Set(data.map(r=>r[f]))].sort((a,b)=>a-b);
+    for(let i=0;i<vals.length-1;i++){
+      const thresh = (vals[i]+vals[i+1])/2;
+      const left = data.filter(r=>r[f]<=thresh);
+      const right = data.filter(r=>r[f]>thresh);
+      const g = gini([left,right],[0,1,2]);
+      if(g<best.gini) best = {gini:g,feat:f,thresh,left,right};
+    }
+  });
+  return best;
+}
+
+function majority(data) {
+  const cnt = [0,0,0];
+  data.forEach(r=>cnt[r[4]]++);
+  return cnt.indexOf(Math.max(...cnt));
+}
+
+function buildTree(data, depth=0, maxDepth=6, minSamples=2) {
+  if(data.length<=minSamples || depth>=maxDepth) return {leaf:true, label:majority(data), n:data.length};
+  const classes = [...new Set(data.map(r=>r[4]))];
+  if(classes.length===1) return {leaf:true, label:classes[0], n:data.length};
+  const split = bestSplit(data);
+  if(!split.left.length||!split.right.length) return {leaf:true, label:majority(data), n:data.length};
+  return {
+    leaf:false, feat:split.feat, thresh:split.thresh, n:data.length,
+    left:buildTree(split.left,depth+1,maxDepth,minSamples),
+    right:buildTree(split.right,depth+1,maxDepth,minSamples)
+  };
+}
+
+function predictDT(node, row) {
+  if(node.leaf) return node.label;
+  return row[node.feat]<=node.thresh ? predictDT(node.left,row) : predictDT(node.right,row);
+}
+
+// =============================================
+// METRICS
+// =============================================
+function confusionMatrix(preds, truths) {
+  const cm = [[0,0,0],[0,0,0],[0,0,0]];
+  preds.forEach((p,i) => cm[truths[i]][p]++);
+  return cm;
+}
+
+function accuracy(preds, truths) {
+  return preds.filter((p,i)=>p===truths[i]).length/preds.length;
+}
+
+function classReport(preds, truths, names) {
+  return names.map((name,c) => {
+    const tp = preds.filter((p,i)=>p===c&&truths[i]===c).length;
+    const fp = preds.filter((p,i)=>p===c&&truths[i]!==c).length;
+    const fn = preds.filter((p,i)=>p!==c&&truths[i]===c).length;
+    const prec = tp/(tp+fp)||0;
+    const rec = tp/(tp+fn)||0;
+    const f1 = 2*prec*rec/(prec+rec)||0;
+    return {name, prec, rec, f1, support: truths.filter(t=>t===c).length};
+  });
+}
+
+// =============================================
+// TRAIN MODELS
+// =============================================
+const {train, test} = trainTestSplit(IRIS_DATA);
+const lrModel = trainLR(train);
+const dtModel = buildTree(train.map(r=>[...r]));
+
+const lrPreds = test.map(r => predictLR(lrModel, r).label);
+const dtPreds = test.map(r => predictDT(dtModel, r));
+const testLabels = test.map(r=>r[4]);
+
+const lrAcc = accuracy(lrPreds, testLabels);
+const dtAcc = accuracy(dtPreds, testLabels);
+const lrCM = confusionMatrix(lrPreds, testLabels);
+const dtCM = confusionMatrix(dtPreds, testLabels);
+const lrReport = classReport(lrPreds, testLabels, SPECIES);
+const dtReport = classReport(dtPreds, testLabels, SPECIES);
+
+// =============================================
+// UI HELPERS
+// =============================================
+function switchTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.target.classList.add('active');
+  if(name==='scatter') drawMainScatter(currentPairIdx);
+  if(name==='matrix') setTimeout(drawCMVisuals,100);
+}
+
+// =============================================
+// EDA
+// =============================================
+function buildEDA() {
+  const stats = document.getElementById('eda-stats');
+  stats.innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Samples</div><div class="stat-value cyan">150</div></div>
+    <div class="stat-card"><div class="stat-label">Features</div><div class="stat-value violet">4</div></div>
+    <div class="stat-card"><div class="stat-label">Classes</div><div class="stat-value amber">3</div></div>
+    <div class="stat-card"><div class="stat-label">Train Size</div><div class="stat-value cyan">${train.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Test Size</div><div class="stat-value violet">${test.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Missing Values</div><div class="stat-value" style="color:#4ade80">0</div></div>
+  `;
+
+  const sumTable = document.getElementById('summary-table');
+  sumTable.innerHTML = `<thead><tr><th>Feature</th><th>Min</th><th>Max</th><th>Mean</th><th>Std</th></tr></thead><tbody>`;
+  FEATURES.forEach((f,fi) => {
+    const vals = IRIS_DATA.map(r=>r[fi]);
+    const min = Math.min(...vals).toFixed(1);
+    const max = Math.max(...vals).toFixed(1);
+    const mean = (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2);
+    const std = Math.sqrt(vals.map(v=>(v-mean)**2).reduce((a,b)=>a+b,0)/vals.length).toFixed(2);
+    sumTable.innerHTML += `<tr><td>${f}</td><td>${min}</td><td>${max}</td><td>${mean}</td><td>${std}</td></tr>`;
+  });
+  sumTable.innerHTML += '</tbody>';
+
+  const stTable = document.getElementById('stats-table');
+  stTable.innerHTML = `<thead><tr><th>Species</th>${FEATURES.map(f=>`<th>${f} μ±σ</th>`).join('')}</tr></thead><tbody>`;
+  SPECIES.forEach((sp,si) => {
+    const rows = IRIS_DATA.filter(r=>r[4]===si);
+    let row = `<tr><td><span class="species-badge s-${sp.toLowerCase()}">${sp}</span></td>`;
+    FEATURES.forEach((f,fi) => {
+      const vals = rows.map(r=>r[fi]);
+      const mean = (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(2);
+      const std = Math.sqrt(vals.map(v=>(v-mean)**2).reduce((a,b)=>a+b,0)/vals.length).toFixed(2);
+      row += `<td>${mean}±${std}</td>`;
+    });
+    row += '</tr>';
+    stTable.innerHTML += row;
+  });
+  stTable.innerHTML += '</tbody>';
+
+  const sampleTable = document.getElementById('sample-table');
+  sampleTable.innerHTML = `<thead><tr><th>#</th>${FEATURES.map(f=>`<th>${f}</th>`).join('')}<th>Species</th></tr></thead><tbody>`;
+  IRIS_DATA.slice(0,15).forEach((r,i) => {
+    const sp = SPECIES[r[4]];
+    sampleTable.innerHTML += `<tr><td>${i+1}</td>${[0,1,2,3].map(f=>`<td>${r[f]}</td>`).join('')}<td><span class="species-badge s-${sp.toLowerCase()}">${sp}</span></td></tr>`;
+  });
+  sampleTable.innerHTML += '</tbody>';
+
+  drawDistChart();
+}
+
+function drawDistChart() {
+  const canvas = document.getElementById('dist-chart');
+  const ctx = canvas.getContext('2d');
+  canvas.width = canvas.offsetWidth || 400;
+  canvas.height = 200;
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  const counts = [50,50,50];
+  const barW = W/6;
+  const maxV = 60;
+  const pad = 30;
+
+  SPECIES.forEach((sp,i) => {
+    const x = pad + i*(barW+20);
+    const barH = (counts[i]/maxV)*(H-60);
+    const y = H-pad-barH;
+    ctx.fillStyle = COLORS[i]+'33';
+    ctx.strokeStyle = COLORS[i];
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.roundRect(x, y, barW, barH, 3);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = COLORS[i];
+    ctx.font = `600 13px 'DM Mono', monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(counts[i], x+barW/2, y-8);
+    ctx.fillStyle = '#64748b';
+    ctx.font = `11px 'DM Mono', monospace`;
+    ctx.fillText(sp, x+barW/2, H-8);
+  });
+}
+
+// =============================================
+// SCATTER PLOTS
+// =============================================
+const PAIRS = [
+  [0,1,'Sepal Length vs Sepal Width'],
+  [2,3,'Petal Length vs Petal Width'],
+  [0,2,'Sepal Length vs Petal Length'],
+  [1,3,'Sepal Width vs Petal Width'],
+  [0,3,'Sepal Length vs Petal Width'],
+  [1,2,'Sepal Width vs Petal Length'],
+];
+let currentPairIdx = 1;
+
+function buildScatterUI() {
+  const sel = document.getElementById('pair-selector');
+  PAIRS.forEach((p,i) => {
+    const btn = document.createElement('button');
+    btn.className = 'sel-btn'+(i===currentPairIdx?' active':'');
+    btn.textContent = p[2];
+    btn.onclick = () => {
+      currentPairIdx = i;
+      document.querySelectorAll('#pair-selector .sel-btn').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      drawMainScatter(i);
+    };
+    sel.appendChild(btn);
+  });
+
+  const grid = document.getElementById('all-scatters');
+  PAIRS.forEach((p,pi) => {
+    const wrap = document.createElement('div');
+    wrap.className = 'plot-wrap';
+    const c = document.createElement('canvas');
+    c.width = 260; c.height = 180;
+    wrap.appendChild(c);
+    const lbl = document.createElement('div');
+    lbl.className = 'plot-label';
+    lbl.textContent = p[2];
+    wrap.appendChild(lbl);
+    grid.appendChild(wrap);
+    drawScatter(c, p[0], p[1], 3);
+  });
+}
+
+function drawScatter(canvas, fx, fy, dotR=5) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle = '#080c18';
+  ctx.fillRect(0,0,W,H);
+
+  const pad = 30;
+  const xVals = IRIS_DATA.map(r=>r[fx]);
+  const yVals = IRIS_DATA.map(r=>r[fy]);
+  const xMin = Math.min(...xVals)-0.2, xMax = Math.max(...xVals)+0.2;
+  const yMin = Math.min(...yVals)-0.2, yMax = Math.max(...yVals)+0.2;
+
+  const toX = v => pad + (v-xMin)/(xMax-xMin)*(W-2*pad);
+  const toY = v => H-pad - (v-yMin)/(yMax-yMin)*(H-2*pad);
+
+  ctx.strokeStyle = 'rgba(30,45,69,0.6)';
+  ctx.lineWidth = 1;
+  for(let i=0;i<=4;i++){
+    const x = pad + i*(W-2*pad)/4;
+    ctx.beginPath(); ctx.moveTo(x,pad); ctx.lineTo(x,H-pad); ctx.stroke();
+    const y = pad + i*(H-2*pad)/4;
+    ctx.beginPath(); ctx.moveTo(pad,y); ctx.lineTo(W-pad,y); ctx.stroke();
+  }
+
+  ctx.fillStyle = '#475569';
+  ctx.font = `${dotR<5?9:10}px 'DM Mono'`;
+  ctx.textAlign = 'center';
+  ctx.fillText(FEATURES[fx], W/2, H-2);
+  ctx.save(); ctx.translate(10, H/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText(FEATURES[fy], 0, 0);
+  ctx.restore();
+
+  IRIS_DATA.forEach(r => {
+    const x = toX(r[fx]), y = toY(r[fy]);
+    ctx.beginPath();
+    ctx.arc(x, y, dotR, 0, Math.PI*2);
+    ctx.fillStyle = COLORS[r[4]]+'99';
+    ctx.strokeStyle = COLORS[r[4]];
+    ctx.lineWidth = 1;
+    ctx.fill();
+    ctx.stroke();
+  });
+}
+
+function drawMainScatter(pIdx) {
+  const p = PAIRS[pIdx];
+  const canvas = document.getElementById('scatter-canvas');
+  canvas.width = Math.min(canvas.offsetWidt
